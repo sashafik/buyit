@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuyIt E-Commerce</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .hidden { display: none; }
+        .card { border: 1px solid #ccc; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        button { cursor: pointer; padding: 5px 10px; }
+        input { padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>BuyIt E-Commerce</h1>
+
+    <div id="auth-section">
+        <h2>Login / Register</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()">Login</button>
+        <button onclick="register()">Register</button>
+        <p id="auth-message"></p>
+    </div>
+
+    <div id="dashboard-section" class="hidden">
+        <h2>Welcome, <span id="user-display"></span>!</h2>
+        <button onclick="logout()">Logout</button>
+        
+        <h3>Products</h3>
+        <button onclick="loadProducts()">Refresh Products</button>
+        <div id="products-list"></div>
+
+        <h3>Your Orders</h3>
+        <button onclick="loadOrders()">Refresh Orders</button>
+        <div id="orders-list"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
