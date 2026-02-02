@@ -1,0 +1,93 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    types: [closed]
+  
+  workflow_dispatch:
+    inputs:
+      service_to_deploy:
+        description: 'Deploy specific service or deploy all'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api-gateway
+          - auth-service
+          - frontend
+          - order-service
+          - product-service
+
+env:
+  DOCKER_REPOSITORY: ${{ vars.DOCKER_REPOSITORY }}
+  PROJECT_ID: ${{ vars.PROJECT_ID }}
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  filter:
+    if: >
+      github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'deploy'))
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v2
+        if: github.event_name != 'workflow_dispatch'
+        id: changes
+        with:
+          filters: |
+            api-gateway: 'api-gateway/**'
+            auth-service: 'auth-service/**'
+            frontend: 'frontend/**'
+            order-service: 'order-service/**'
+            product-service: 'product-service/**'
+
+      - id: set-matrix
+        name: Set deployment matrix
+        shell: python
+        env: 
+          CHANGES: ${{ toJson(steps.changes.outputs) }}
+          EVENT_NAME: ${{ github.event_name }}
+          SERVICE_TO_DEPLOY: ${{ github.event.inputs.service_to_deploy || 'all' }}
+          MANUAL_DEPLOY: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+            import json
+            import os
+            import sys
+
+            matrix = {"include": []}
+            changes = json.loads(os.getenv('CHANGES', '{}'))
+            event_name = os.getenv('EVENT_NAME')
+            service_to_deploy = os.getenv('SERVICE_TO_DEPLOY', 'all')
+            manual_deploy = os.getenv('MANUAL_DEPLOY') == 'True'
+            services = ['api-gateway', 'auth-service', 'frontend', 'order-service', 'product-service']
+            if manual_deploy:
+                if service_to_deploy == 'all':
+                    for service in services:
+                        matrix['include'].append({'service': service})
+                elif service_to_deploy in services:
+                    matrix['include'].append({'service': service_to_deploy})
+                else:
+                    print(f"::error::Invalid service specified: {service_to_deploy}")
+                    sys.exit(1)
+            else:
+                for service in services:
+                    if changes.get(service, 'false') == 'true':
+                        matrix['include'].append({'service': service})
+            if not matrix['include']:
+                print("::warning::No services to deploy based on changes or input.")
+                sys.exit(78)  # Exit code 78 skips the job
+            print(f"::set-output name=matrix::{json.dumps(matrix)}")
+            
