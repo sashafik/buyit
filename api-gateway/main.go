@@ -7,16 +7,26 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 )
 
 // Service URLs
-const (
+var (
 	AuthServiceURL    = "http://localhost:8081"
 	ProductServiceURL = "http://localhost:8082"
 	OrderServiceURL   = "http://localhost:8083"
 )
 
 func main() {
+	if url := os.Getenv("AUTH_SERVICE_URL"); url != "" {
+		AuthServiceURL = url
+	}
+	if url := os.Getenv("PRODUCT_SERVICE_URL"); url != "" {
+		ProductServiceURL = url
+	}
+	if url := os.Getenv("ORDER_SERVICE_URL"); url != "" {
+		OrderServiceURL = url
+	}
 	mux := http.NewServeMux()
 
 	// Auth Service Routes
@@ -29,8 +39,25 @@ func main() {
 	// Order Service Routes (Protected)
 	mux.Handle("/orders", authMiddleware(newProxy(OrderServiceURL)))
 
+	handler := corsMiddleware(mux)
+
 	fmt.Println("API Gateway running on port 8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(http.ListenAndServe(":8080", handler))
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-ID")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func newProxy(target string) http.Handler {

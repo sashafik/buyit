@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -33,10 +34,12 @@ var (
 	ordersMutex sync.RWMutex
 )
 
-// Simplified: We assume Product Service is running at localhost:8082
-const ProductServiceURL = "http://localhost:8082"
+var ProductServiceURL = "http://localhost:8082"
 
 func main() {
+	if url := os.Getenv("PRODUCT_SERVICE_URL"); url != "" {
+		ProductServiceURL = url
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /orders", createOrderHandler)
 	mux.HandleFunc("GET /orders", listOrdersHandler)
